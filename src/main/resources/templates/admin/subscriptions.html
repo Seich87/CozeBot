@@ -1,0 +1,1186 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CozeTalk - Управление подписками</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        .sidebar {
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            z-index: 100;
+            padding: 48px 0 0;
+            box-shadow: inset -1px 0 0 rgba(0, 0, 0, .1);
+        }
+
+        .sidebar-sticky {
+            position: relative;
+            top: 0;
+            height: calc(100vh - 48px);
+            padding-top: .5rem;
+            overflow-x: hidden;
+            overflow-y: auto;
+        }
+
+        .nav-link {
+            color: #333;
+            font-weight: 500;
+        }
+
+        .nav-link.active {
+            color: #0d6efd;
+        }
+
+        .subscription-status {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+        }
+
+        .subscription-status.active {
+            background-color: #2ed8b6;
+        }
+
+        .subscription-status.expired {
+            background-color: #999;
+        }
+
+        .progress-thin {
+            height: 8px;
+        }
+
+        .table-hover tbody tr:hover {
+            background-color: rgba(13, 110, 253, 0.05);
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+<header class="navbar navbar-dark sticky-top bg-dark flex-md-nowrap p-0 shadow">
+    <a class="navbar-brand col-md-3 col-lg-2 me-0 px-3" href="#">CozeTalk Admin</a>
+    <button class="navbar-toggler position-absolute d-md-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sidebarMenu" aria-controls="sidebarMenu" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="navbar-nav">
+        <div class="nav-item text-nowrap">
+            <form th:action="@{/logout}" method="post">
+                <button class="nav-link px-3 bg-dark border-0" type="submit">Выйти</button>
+            </form>
+        </div>
+    </div>
+</header>
+
+<div class="container-fluid">
+    <div class="row">
+        <nav id="sidebarMenu" class="col-md-3 col-lg-2 d-md-block bg-light sidebar collapse">
+            <div class="position-sticky sidebar-sticky">
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link" th:href="@{/admin/dashboard}">
+                            <i class="bi bi-speedometer2 me-2"></i>
+                            Панель управления
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" th:href="@{/admin/users}">
+                            <i class="bi bi-people me-2"></i>
+                            Пользователи
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" th:href="@{/admin/subscriptions}">
+                            <i class="bi bi-card-checklist me-2"></i>
+                            Подписки
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" th:href="@{/admin/payments}">
+                            <i class="bi bi-currency-dollar me-2"></i>
+                            Платежи
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
+                            <span>Настройки</span>
+                        </h6>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" th:href="@{/admin/settings/bot}">
+                            <i class="bi bi-robot me-2"></i>
+                            Настройки бота
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" th:href="@{/admin/settings/tariff}">
+                            <i class="bi bi-tags me-2"></i>
+                            Тарифные планы
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" th:href="@{/admin/settings/webhook}">
+                            <i class="bi bi-link-45deg me-2"></i>
+                            Webhook настройки
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                <h1 class="h2">Управление подписками</h1>
+                <div class="btn-toolbar mb-2 mb-md-0">
+                    <div class="btn-group me-2">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="exportBtn">
+                            <i class="bi bi-download"></i> Экспорт в CSV
+                        </button>
+                    </div>
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="subscriptionPeriodDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-calendar3"></i>
+                            <span id="selectedPeriodText">Все подписки</span>
+                        </button>
+                        <ul class="dropdown-menu" aria-labelledby="subscriptionPeriodDropdown">
+                            <li><a class="dropdown-item" href="#" data-period="active">Активные</a></li>
+                            <li><a class="dropdown-item" href="#" data-period="expired">Истекшие</a></li>
+                            <li><a class="dropdown-item" href="#" data-period="expiring-7">Истекают в течение 7 дней</a></li>
+                            <li><a class="dropdown-item" href="#" data-period="expiring-30">Истекают в течение 30 дней</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="#" data-period="all">Все подписки</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Сводная информация -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card text-bg-light">
+                        <div class="card-body">
+                            <h5 class="card-title">Всего подписок</h5>
+                            <p class="card-text h3" th:text="${subscriptionStats.totalCount}">0</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-bg-success">
+                        <div class="card-body">
+                            <h5 class="card-title">Активных</h5>
+                            <p class="card-text h3" th:text="${subscriptionStats.activeCount}">0</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-bg-warning">
+                        <div class="card-body">
+                            <h5 class="card-title">Истекают скоро</h5>
+                            <p class="card-text h3" th:text="${subscriptionStats.expiringCount}">0</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-bg-secondary">
+                        <div class="card-body">
+                            <h5 class="card-title">Истекших</h5>
+                            <p class="card-text h3" th:text="${subscriptionStats.expiredCount}">0</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            Распределение по тарифам
+                        </div>
+                        <div class="card-body">
+                            <canvas id="tariffDistributionChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            Процент возобновления подписок
+                        </div>
+                        <div class="card-body">
+                            <canvas id="renewalRateChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Фильтры -->
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">Фильтры</h5>
+                            <form th:action="@{/admin/subscriptions}" method="get" class="row g-3">
+                                <div class="col-md-3">
+                                    <label for="subscriptionUsername" class="form-label">Имя пользователя</label>
+                                    <input type="text" class="form-control" id="subscriptionUsername" name="username" th:value="${param.username}">
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="subscriptionTariffPlan" class="form-label">Тарифный план</label>
+                                    <select class="form-select" id="subscriptionTariffPlan" name="tariffPlan">
+                                        <option value="">Все планы</option>
+                                        <option th:each="plan : ${tariffPlans}"
+                                                th:value="${plan}"
+                                                th:text="${plan.displayName}"
+                                                th:selected="${param.tariffPlan == plan}"></option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="subscriptionStatus" class="form-label">Статус</label>
+                                    <select class="form-select" id="subscriptionStatus" name="status">
+                                        <option value="">Все статусы</option>
+                                        <option value="active" th:selected="${param.status == 'active'}">Активные</option>
+                                        <option value="expired" th:selected="${param.status == 'expired'}">Истекшие</option>
+                                        <option value="expiring" th:selected="${param.status == 'expiring'}">Истекают скоро</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="subscriptionMinRequests" class="form-label">Мин. запросов</label>
+                                    <input type="number" class="form-control" id="subscriptionMinRequests" name="minRequests" th:value="${param.minRequests}">
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="subscriptionStartDate" class="form-label">Начальная дата</label>
+                                    <input type="date" class="form-control" id="subscriptionStartDate" name="startDate" th:value="${param.startDate}">
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="subscriptionEndDate" class="form-label">Конечная дата</label>
+                                    <input type="date" class="form-control" id="subscriptionEndDate" name="endDate" th:value="${param.endDate}">
+                                </div>
+                                <div class="col-md-6 d-flex align-items-end">
+                                    <div class="d-grid gap-2 d-md-flex justify-content-md-end w-100">
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="bi bi-search"></i> Применить фильтры
+                                        </button>
+                                        <a th:href="@{/admin/subscriptions}" class="btn btn-outline-secondary">
+                                            <i class="bi bi-x-circle"></i> Сбросить
+                                        </a>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Таблица подписок -->
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead>
+                    <tr>
+                        <th scope="col">
+                            <a th:href="@{/admin/subscriptions(sort='id', direction=${param.direction == 'asc' && param.sort == 'id' ? 'desc' : 'asc'})}" class="text-decoration-none text-dark">
+                                ID
+                                <i th:if="${param.sort == 'id' && param.direction == 'asc'}" class="bi bi-arrow-up-short"></i>
+                                <i th:if="${param.sort == 'id' && param.direction == 'desc'}" class="bi bi-arrow-down-short"></i>
+                            </a>
+                        </th>
+                        <th scope="col">
+                            <a th:href="@{/admin/subscriptions(sort='user.telegramUsername', direction=${param.direction == 'asc' && param.sort == 'user.telegramUsername' ? 'desc' : 'asc'})}" class="text-decoration-none text-dark">
+                                Пользователь
+                                <i th:if="${param.sort == 'user.telegramUsername' && param.direction == 'asc'}" class="bi bi-arrow-up-short"></i>
+                                <i th:if="${param.sort == 'user.telegramUsername' && param.direction == 'desc'}" class="bi bi-arrow-down-short"></i>
+                            </a>
+                        </th>
+                        <th scope="col">
+                            <a th:href="@{/admin/subscriptions(sort='tariffPlan', direction=${param.direction == 'asc' && param.sort == 'tariffPlan' ? 'desc' : 'asc'})}" class="text-decoration-none text-dark">
+                                Тариф
+                                <i th:if="${param.sort == 'tariffPlan' && param.direction == 'asc'}" class="bi bi-arrow-up-short"></i>
+                                <i th:if="${param.sort == 'tariffPlan' && param.direction == 'desc'}" class="bi bi-arrow-down-short"></i>
+                            </a>
+                        </th>
+                        <th scope="col">
+                            <a th:href="@{/admin/subscriptions(sort='startDate', direction=${param.direction == 'asc' && param.sort == 'startDate' ? 'desc' : 'asc'})}" class="text-decoration-none text-dark">
+                                Дата начала
+                                <i th:if="${param.sort == 'startDate' && param.direction == 'asc'}" class="bi bi-arrow-up-short"></i>
+                                <i th:if="${param.sort == 'startDate' && param.direction == 'desc'}" class="bi bi-arrow-down-short"></i>
+                            </a>
+                        </th>
+                        <th scope="col">
+                            <a th:href="@{/admin/subscriptions(sort='endDate', direction=${param.direction == 'asc' && param.sort == 'endDate' ? 'desc' : 'asc'})}" class="text-decoration-none text-dark">
+                                Дата окончания
+                                <i th:if="${param.sort == 'endDate' && param.direction == 'asc'}" class="bi bi-arrow-up-short"></i>
+                                <i th:if="${param.sort == 'endDate' && param.direction == 'desc'}" class="bi bi-arrow-down-short"></i>
+                            </a>
+                        </th>
+                        <th scope="col">Использование</th>
+                        <th scope="col">Статус</th>
+                        <th scope="col">Действия</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="subscription : ${subscriptions}" th:data-subscription-id="${subscription.id}"
+                        onclick="showSubscriptionDetails(this.getAttribute('data-subscription-id'))">
+                        <td th:text="${subscription.id}">1</td>
+                        <td>
+                            <a th:href="@{/admin/users/{id}(id=${subscription.user.id})}" th:text="${subscription.user.telegramUsername}" onclick="event.stopPropagation()">@username</a>
+                        </td>
+                        <td th:text="${subscription.tariffPlan.displayName}">Стандартный</td>
+                        <td th:text="${#temporals.format(subscription.startDate, 'dd.MM.yyyy')}">01.05.2023</td>
+                        <td th:text="${#temporals.format(subscription.endDate, 'dd.MM.yyyy')}">01.06.2023</td>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="progress progress-thin flex-grow-1 me-2">
+                                    <div class="progress-bar" role="progressbar"
+                                         th:style="'width: ' + ${100 - (subscription.remainingRequests * 100 / subscription.totalRequests)} + '%'"
+                                         th:aria-valuenow="${100 - (subscription.remainingRequests * 100 / subscription.totalRequests)}"
+                                         aria-valuemin="0" aria-valuemax="100"></div>
+                                </div>
+                                <small th:text="${subscription.remainingRequests + '/' + subscription.totalRequests}">50/100</small>
+                            </div>
+                        </td>
+                        <td>
+                                    <span th:if="${subscription.active}" class="badge text-bg-success">
+                                        <i class="bi bi-check-circle-fill"></i> Активна
+                                    </span>
+                            <span th:unless="${subscription.active}" class="badge text-bg-secondary">
+                                        <i class="bi bi-x-circle-fill"></i> Истекла
+                                    </span>
+                        </td>
+                        <td>
+                            <div class="btn-group" role="group" onclick="event.stopPropagation()">
+                                <button class="btn btn-sm btn-outline-primary" title="Редактировать"
+                                        th:data-subscription-id="${subscription.id}" onclick="editSubscription(this.getAttribute('data-subscription-id'))">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-success" title="Продлить"
+                                        th:data-subscription-id="${subscription.id}" onclick="extendSubscription(this.getAttribute('data-subscription-id'))">
+                                    <i class="bi bi-arrow-clockwise"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" title="Отменить"
+                                        th:if="${subscription.active}"
+                                        th:data-subscription-id="${subscription.id}" onclick="cancelSubscription(this.getAttribute('data-subscription-id'))">
+                                    <i class="bi bi-x-circle"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(subscriptions)}">
+                        <td colspan="9" class="text-center">Подписки не найдены</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Пагинация -->
+            <nav th:if="${totalPages > 1}" aria-label="Pagination">
+                <ul class="pagination justify-content-center">
+                    <li class="page-item" th:classappend="${currentPage == 0 ? 'disabled' : ''}">
+                        <a class="page-link" th:href="@{/admin/subscriptions(page=${currentPage - 1})}" aria-label="Previous">
+                            <span aria-hidden="true">&laquo;</span>
+                        </a>
+                    </li>
+                    <li class="page-item" th:each="i : ${#numbers.sequence(0, totalPages - 1)}"
+                        th:classappend="${currentPage == i ? 'active' : ''}">
+                        <a class="page-link" th:href="@{/admin/subscriptions(page=${i})}" th:text="${i + 1}">1</a>
+                    </li>
+                    <li class="page-item" th:classappend="${currentPage == totalPages - 1 ? 'disabled' : ''}">
+                        <a class="page-link" th:href="@{/admin/subscriptions(page=${currentPage + 1})}" aria-label="Next">
+                            <span aria-hidden="true">&raquo;</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </main>
+    </div>
+</div>
+
+<!-- Модальное окно с деталями подписки -->
+<div class="modal fade" id="subscriptionDetailModal" tabindex="-1" aria-labelledby="subscriptionDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="subscriptionDetailModalLabel">Информация о подписке</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center" id="subscriptionDetailLoader">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Загрузка...</span>
+                    </div>
+                    <p>Загрузка данных подписки...</p>
+                </div>
+                <div id="subscriptionDetailContent" style="display: none;">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <h6>Основная информация</h6>
+                            <table class="table table-sm">
+                                <tr>
+                                    <th>ID подписки:</th>
+                                    <td id="subId"></td>
+                                </tr>
+                                <tr>
+                                    <th>Статус:</th>
+                                    <td id="subStatus"></td>
+                                </tr>
+                                <tr>
+                                    <th>Тарифный план:</th>
+                                    <td id="subTariffPlan"></td>
+                                </tr>
+                                <tr>
+                                    <th>Дата создания:</th>
+                                    <td id="subCreatedAt"></td>
+                                </tr>
+                                <tr>
+                                    <th>Последнее обновление:</th>
+                                    <td id="subUpdatedAt"></td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Период действия</h6>
+                            <table class="table table-sm">
+                                <tr>
+                                    <th>Дата начала:</th>
+                                    <td id="subStartDate"></td>
+                                </tr>
+                                <tr>
+                                    <th>Дата окончания:</th>
+                                    <td id="subEndDate"></td>
+                                </tr>
+                                <tr>
+                                    <th>Осталось дней:</th>
+                                    <td id="subRemainingDays"></td>
+                                </tr>
+                                <tr>
+                                    <th>Осталось запросов:</th>
+                                    <td>
+                                        <span id="subRemainingRequests"></span>
+                                        <div class="progress progress-thin mt-1">
+                                            <div class="progress-bar" id="subRequestsProgressBar" role="progressbar"
+                                                 style="width: 0%"
+                                                 aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <h6>Информация о пользователе</h6>
+                            <table class="table table-sm">
+                                <tr>
+                                    <th>ID пользователя:</th>
+                                    <td id="subUserId"></td>
+                                </tr>
+                                <tr>
+                                    <th>Telegram ID:</th>
+                                    <td id="subTelegramId"></td>
+                                </tr>
+                                <tr>
+                                    <th>Имя пользователя:</th>
+                                    <td id="subTelegramUsername"></td>
+                                </tr>
+                                <tr>
+                                    <th>Имя:</th>
+                                    <td id="subUserName"></td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>История использования</h6>
+                            <div id="usageHistory">
+                                <canvas id="usageHistoryChart" height="200"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-12">
+                            <h6>Связанный платеж</h6>
+                            <div id="noPayment" class="alert alert-warning" style="display: none;">
+                                Связанный платеж не найден.
+                            </div>
+                            <table class="table table-sm" id="paymentTable" style="display: none;">
+                                <tr>
+                                    <th>ID платежа:</th>
+                                    <td id="paymentId"></td>
+                                </tr>
+                                <tr>
+                                    <th>Сумма:</th>
+                                    <td id="paymentAmount"></td>
+                                </tr>
+                                <tr>
+                                    <th>Дата платежа:</th>
+                                    <td id="paymentDate"></td>
+                                </tr>
+                                <tr>
+                                    <th>Статус:</th>
+                                    <td id="paymentStatus"></td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div id="subscriptionDetailError" class="alert alert-danger" style="display: none;">
+                    Произошла ошибка при загрузке данных подписки. Пожалуйста, попробуйте позже.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+                <div id="subscriptionActions">
+                    <button type="button" class="btn btn-primary" id="editSubBtn">
+                        <i class="bi bi-pencil"></i> Редактировать
+                    </button>
+                    <button type="button" class="btn btn-success" id="extendSubBtn">
+                        <i class="bi bi-arrow-clockwise"></i> Продлить
+                    </button>
+                    <button type="button" class="btn btn-warning" id="resetSubRequestsBtn">
+                        <i class="bi bi-arrow-repeat"></i> Сбросить запросы
+                    </button>
+                    <button type="button" class="btn btn-danger" id="cancelSubBtn">
+                        <i class="bi bi-x-circle"></i> Отменить
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно редактирования подписки -->
+<div class="modal fade" id="editSubscriptionModal" tabindex="-1" aria-labelledby="editSubscriptionModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editSubscriptionModalLabel">Редактирование подписки</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editSubscriptionForm">
+                    <input type="hidden" id="editSubId" name="id">
+
+                    <div class="mb-3">
+                        <label for="editSubTariffPlan" class="form-label">Тарифный план</label>
+                        <select class="form-select" id="editSubTariffPlan" name="tariffPlan" required>
+                            <option value="">Выберите тарифный план</option>
+                            <option th:each="plan : ${tariffPlans}"
+                                    th:value="${plan}"
+                                    th:text="${plan.displayName}"></option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="editSubStartDate" class="form-label">Дата начала</label>
+                        <input type="date" class="form-control" id="editSubStartDate" name="startDate" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="editSubEndDate" class="form-label">Дата окончания</label>
+                        <input type="date" class="form-control" id="editSubEndDate" name="endDate" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="editSubRemainingRequests" class="form-label">Оставшиеся запросы</label>
+                        <input type="number" class="form-control" id="editSubRemainingRequests" name="remainingRequests" min="0" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="editSubTotalRequests" class="form-label">Всего запросов</label>
+                        <input type="number" class="form-control" id="editSubTotalRequests" name="totalRequests" min="0" required>
+                    </div>
+
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="editSubActive" name="active">
+                        <label class="form-check-label" for="editSubActive">Активна</label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" id="saveSubBtn">Сохранить</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно продления подписки -->
+<div class="modal fade" id="extendSubscriptionModal" tabindex="-1" aria-labelledby="extendSubscriptionModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="extendSubscriptionModalLabel">Продление подписки</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="extendSubscriptionForm">
+                    <input type="hidden" id="extendSubId" name="id">
+
+                    <div class="mb-3">
+                        <label for="extendSubDuration" class="form-label">Продлить на</label>
+                        <select class="form-select" id="extendSubDuration" name="duration" required>
+                            <option value="30">30 дней</option>
+                            <option value="60">60 дней</option>
+                            <option value="90">90 дней</option>
+                            <option value="180">180 дней</option>
+                            <option value="365">365 дней</option>
+                            <option value="custom">Другой период</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3" id="customDurationBlock" style="display: none;">
+                        <label for="extendSubCustomDuration" class="form-label">Количество дней</label>
+                        <input type="number" class="form-control" id="extendSubCustomDuration" name="customDuration" min="1">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="extendSubAddRequests" class="form-label">Добавить запросов</label>
+                        <select class="form-select" id="extendSubAddRequests" name="addRequests" required>
+                            <option value="reset">Сбросить до лимита по тарифу</option>
+                            <option value="add">Добавить к текущим</option>
+                            <option value="custom">Указать вручную</option>
+                            <option value="unchanged">Оставить без изменений</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3" id="customRequestsBlock" style="display: none;">
+                        <label for="extendSubCustomRequests" class="form-label">Количество запросов</label>
+                        <input type="number" class="form-control" id="extendSubCustomRequests" name="customRequests" min="1">
+                    </div>
+
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="extendSubNotifyUser" name="notifyUser" checked>
+                        <label class="form-check-label" for="extendSubNotifyUser">Отправить уведомление пользователю</label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" id="confirmExtendSubBtn">Продлить</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script th:inline="javascript">
+    // Получаем данные для графиков
+    const tariffDistributionData = /*[[${tariffDistribution}]]*/ [];
+    const renewalRateData = /*[[${renewalRateData}]]*/ [];
+
+    // Инициализируем графики
+    document.addEventListener('DOMContentLoaded', function() {
+        // График распределения по тарифам
+        const tariffCtx = document.getElementById('tariffDistributionChart').getContext('2d');
+        const tariffChart = new Chart(tariffCtx, {
+            type: 'pie',
+            data: {
+                labels: tariffDistributionData.map(item => item.name),
+                datasets: [{
+                    data: tariffDistributionData.map(item => item.count),
+                    backgroundColor: [
+                        'rgba(54, 162, 235, 0.7)',
+                        'rgba(255, 99, 132, 0.7)',
+                        'rgba(255, 206, 86, 0.7)',
+                        'rgba(75, 192, 192, 0.7)',
+                        'rgba(153, 102, 255, 0.7)'
+                    ],
+                    borderColor: [
+                        'rgba(54, 162, 235, 1)',
+                        'rgba(255, 99, 132, 1)',
+                        'rgba(255, 206, 86, 1)',
+                        'rgba(75, 192, 192, 1)',
+                        'rgba(153, 102, 255, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.raw || 0;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = Math.round((value / total) * 100);
+                                return `${label}: ${value} (${percentage}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // График процента возобновления подписок
+        const renewalCtx = document.getElementById('renewalRateChart').getContext('2d');
+        const renewalChart = new Chart(renewalCtx, {
+            type: 'bar',
+            data: {
+                labels: renewalRateData.map(item => item.month),
+                datasets: [{
+                    label: 'Процент возобновления',
+                    data: renewalRateData.map(item => item.rate),
+                    backgroundColor: 'rgba(46, 216, 182, 0.7)',
+                    borderColor: 'rgba(46, 216, 182, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        title: {
+                            display: true,
+                            text: '%'
+                        }
+                    }
+                }
+            }
+        });
+
+        // Настройка кастомных полей в модальных окнах
+        document.getElementById('extendSubDuration').addEventListener('change', function() {
+            const customBlock = document.getElementById('customDurationBlock');
+            if (this.value === 'custom') {
+                customBlock.style.display = 'block';
+            } else {
+                customBlock.style.display = 'none';
+            }
+        });
+
+        document.getElementById('extendSubAddRequests').addEventListener('change', function() {
+            const customBlock = document.getElementById('customRequestsBlock');
+            if (this.value === 'custom') {
+                customBlock.style.display = 'block';
+            } else {
+                customBlock.style.display = 'none';
+            }
+        });
+
+        // Экспорт в CSV
+        document.getElementById('exportBtn').addEventListener('click', function() {
+            window.location.href = '/admin/subscriptions/export?' + new URLSearchParams(window.location.search).toString();
+        });
+
+        // Обработчик фильтра периода
+        document.querySelectorAll('[data-period]').forEach(item => {
+            item.addEventListener('click', function(e) {
+                e.preventDefault();
+                const period = this.getAttribute('data-period');
+                const periodText = this.textContent.trim();
+
+                // Сохраняем текущие параметры поиска
+                const searchParams = new URLSearchParams(window.location.search);
+                searchParams.set('period', period);
+
+                // Обновляем UI
+                document.getElementById('selectedPeriodText').textContent = periodText;
+
+                // Обновляем URL с новым параметром периода
+                window.location.href = '/admin/subscriptions?' + searchParams.toString();
+            });
+        });
+
+        // Настройка кнопок действий
+        document.getElementById('saveSubBtn').addEventListener('click', saveSubscription);
+        document.getElementById('confirmExtendSubBtn').addEventListener('click', confirmExtendSubscription);
+        document.getElementById('editSubBtn').addEventListener('click', function() {
+            const id = document.getElementById('subId').textContent;
+            editSubscription(id);
+        });
+        document.getElementById('extendSubBtn').addEventListener('click', function() {
+            const id = document.getElementById('subId').textContent;
+            showExtendSubscriptionModal(id);
+        });
+        document.getElementById('resetSubRequestsBtn').addEventListener('click', function() {
+            const id = document.getElementById('subId').textContent;
+            resetSubscriptionRequests(id);
+        });
+        document.getElementById('cancelSubBtn').addEventListener('click', function() {
+            const id = document.getElementById('subId').textContent;
+            cancelSubscription(id);
+        });
+    });
+
+    // Функция для отображения деталей подписки
+    function showSubscriptionDetails(subscriptionId) {
+        // Показываем модальное окно
+        const modal = new bootstrap.Modal(document.getElementById('subscriptionDetailModal'));
+        modal.show();
+
+        // Показываем индикатор загрузки
+        document.getElementById('subscriptionDetailLoader').style.display = 'block';
+        document.getElementById('subscriptionDetailContent').style.display = 'none';
+        document.getElementById('subscriptionDetailError').style.display = 'none';
+
+        // Загружаем данные подписки через AJAX
+        fetch(`/admin/api/subscriptions/${subscriptionId}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Ошибка загрузки данных');
+                }
+                return response.json();
+            })
+            .then(subscription => {
+                // Заполняем модальное окно данными
+                document.getElementById('subId').textContent = subscription.id;
+
+                // Статус с цветовым индикатором
+                const statusEl = document.getElementById('subStatus');
+                if (subscription.active) {
+                    statusEl.textContent = 'Активна';
+                    statusEl.className = 'badge text-bg-success';
+                } else {
+                    statusEl.textContent = 'Неактивна';
+                    statusEl.className = 'badge text-bg-secondary';
+                }
+
+                document.getElementById('subTariffPlan').textContent = subscription.tariffPlan.displayName;
+                document.getElementById('subCreatedAt').textContent = new Date(subscription.createdAt).toLocaleString();
+                document.getElementById('subUpdatedAt').textContent = subscription.updatedAt ? new Date(subscription.updatedAt).toLocaleString() : 'Н/Д';
+
+                // Период действия
+                document.getElementById('subStartDate').textContent = new Date(subscription.startDate).toLocaleDateString();
+                document.getElementById('subEndDate').textContent = new Date(subscription.endDate).toLocaleDateString();
+
+                // Вычисляем оставшиеся дни
+                const today = new Date();
+                const endDate = new Date(subscription.endDate);
+                const diffTime = endDate - today;
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                if (diffDays > 0 && subscription.active) {
+                    document.getElementById('subRemainingDays').textContent = diffDays + ' дн.';
+                } else {
+                    document.getElementById('subRemainingDays').textContent = 'Истекла';
+                }
+
+                // Оставшиеся запросы и прогресс-бар
+                document.getElementById('subRemainingRequests').textContent = `${subscription.remainingRequests} из ${subscription.totalRequests}`;
+                const usagePercent = Math.round((1 - subscription.remainingRequests / subscription.totalRequests) * 100);
+                const progressBar = document.getElementById('subRequestsProgressBar');
+                progressBar.style.width = usagePercent + '%';
+                progressBar.setAttribute('aria-valuenow', usagePercent);
+
+                // Информация о пользователе
+                if (subscription.user) {
+                    document.getElementById('subUserId').textContent = subscription.user.id;
+                    document.getElementById('subTelegramId').textContent = subscription.user.telegramId;
+                    document.getElementById('subTelegramUsername').textContent = subscription.user.telegramUsername || 'Н/Д';
+                    document.getElementById('subUserName').textContent = `${subscription.user.firstName || ''} ${subscription.user.lastName || ''}`.trim() || 'Н/Д';
+                } else {
+                    document.getElementById('subUserId').textContent = 'Н/Д';
+                    document.getElementById('subTelegramId').textContent = 'Н/Д';
+                    document.getElementById('subTelegramUsername').textContent = 'Н/Д';
+                    document.getElementById('subUserName').textContent = 'Н/Д';
+                }
+
+                // История использования (график)
+                if (subscription.usageHistory && subscription.usageHistory.length > 0) {
+                    const usageCtx = document.getElementById('usageHistoryChart').getContext('2d');
+                    const usageChart = new Chart(usageCtx, {
+                        type: 'line',
+                        data: {
+                            labels: subscription.usageHistory.map(item => item.date),
+                            datasets: [{
+                                label: 'Использовано запросов',
+                                data: subscription.usageHistory.map(item => item.count),
+                                borderColor: 'rgba(75, 192, 192, 1)',
+                                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                                fill: true,
+                                tension: 0.4
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: {
+                                legend: {
+                                    display: false
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        precision: 0
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+
+                // Информация о связанном платеже
+                if (subscription.payment) {
+                    document.getElementById('noPayment').style.display = 'none';
+                    document.getElementById('paymentTable').style.display = 'table';
+
+                    document.getElementById('paymentId').textContent = subscription.payment.id;
+                    document.getElementById('paymentAmount').textContent = subscription.payment.amount + ' ₽';
+                    document.getElementById('paymentDate').textContent = new Date(subscription.payment.createdAt).toLocaleDateString();
+
+                    const paymentStatusEl = document.getElementById('paymentStatus');
+                    switch (subscription.payment.status) {
+                        case 'COMPLETED':
+                            paymentStatusEl.textContent = 'Выполнен';
+                            paymentStatusEl.className = 'badge text-bg-success';
+                            break;
+                        case 'PENDING':
+                            paymentStatusEl.textContent = 'В обработке';
+                            paymentStatusEl.className = 'badge text-bg-warning';
+                            break;
+                        case 'FAILED':
+                            paymentStatusEl.textContent = 'Ошибка';
+                            paymentStatusEl.className = 'badge text-bg-danger';
+                            break;
+                        default:
+                            paymentStatusEl.textContent = subscription.payment.status;
+                            paymentStatusEl.className = 'badge text-bg-secondary';
+                    }
+                } else {
+                    document.getElementById('noPayment').style.display = 'block';
+                    document.getElementById('paymentTable').style.display = 'none';
+                }
+
+                // Настраиваем кнопки действий
+                setupSubscriptionActions(subscription);
+
+                // Скрываем индикатор загрузки и показываем контент
+                document.getElementById('subscriptionDetailLoader').style.display = 'none';
+                document.getElementById('subscriptionDetailContent').style.display = 'block';
+            })
+            .catch(error => {
+                console.error('Ошибка:', error);
+                document.getElementById('subscriptionDetailLoader').style.display = 'none';
+                document.getElementById('subscriptionDetailError').style.display = 'block';
+            });
+    }
+
+    // Настройка кнопок действий в зависимости от статуса подписки
+    function setupSubscriptionActions(subscription) {
+        document.getElementById('editSubBtn').style.display = 'inline-block';
+        document.getElementById('extendSubBtn').style.display = 'inline-block';
+        document.getElementById('resetSubRequestsBtn').style.display = subscription.active ? 'inline-block' : 'none';
+        document.getElementById('cancelSubBtn').style.display = subscription.active ? 'inline-block' : 'none';
+    }
+
+    // Функция для редактирования подписки
+    function editSubscription(subscriptionId) {
+        // Закрываем предыдущее модальное окно, если оно открыто
+        if (document.getElementById('subscriptionDetailModal').classList.contains('show')) {
+            bootstrap.Modal.getInstance(document.getElementById('subscriptionDetailModal')).hide();
+        }
+
+        // Загружаем данные подписки для редактирования
+        fetch(`/admin/api/subscriptions/${subscriptionId}`)
+            .then(response => response.json())
+            .then(subscription => {
+                document.getElementById('editSubId').value = subscription.id;
+                document.getElementById('editSubTariffPlan').value = subscription.tariffPlan;
+                document.getElementById('editSubStartDate').value = subscription.startDate.split('T')[0];
+                document.getElementById('editSubEndDate').value = subscription.endDate.split('T')[0];
+                document.getElementById('editSubRemainingRequests').value = subscription.remainingRequests;
+                document.getElementById('editSubTotalRequests').value = subscription.totalRequests;
+                document.getElementById('editSubActive').checked = subscription.active;
+
+                // Показываем модальное окно редактирования
+                const modal = new bootstrap.Modal(document.getElementById('editSubscriptionModal'));
+                modal.show();
+            })
+            .catch(error => {
+                console.error('Ошибка:', error);
+                alert('Произошла ошибка при загрузке данных подписки.');
+            });
+    }
+
+    // Функция для сохранения изменений подписки
+    function saveSubscription() {
+        const formData = new FormData(document.getElementById('editSubscriptionForm'));
+        const subscriptionId = formData.get('id');
+
+        // Преобразуем данные формы в объект
+        const subscriptionData = {
+            id: subscriptionId,
+            tariffPlan: formData.get('tariffPlan'),
+            startDate: formData.get('startDate'),
+            endDate: formData.get('endDate'),
+            remainingRequests: formData.get('remainingRequests'),
+            totalRequests: formData.get('totalRequests'),
+            active: formData.get('active') === 'on'
+        };
+
+        // Отправляем запрос на обновление
+        fetch(`/admin/api/subscriptions/${subscriptionId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="_csrf"]')?.getAttribute('content') || ''
+            },
+            body: JSON.stringify(subscriptionData)
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Ошибка при обновлении подписки');
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Закрываем модальное окно и перезагружаем страницу
+                bootstrap.Modal.getInstance(document.getElementById('editSubscriptionModal')).hide();
+                alert('Подписка успешно обновлена');
+                window.location.reload();
+            })
+            .catch(error => {
+                console.error('Ошибка:', error);
+                alert('Произошла ошибка при обновлении подписки. Пожалуйста, попробуйте позже.');
+            });
+    }
+
+    // Функция для отображения модального окна продления подписки
+    function showExtendSubscriptionModal(subscriptionId) {
+        // Закрываем предыдущее модальное окно, если оно открыто
+        if (document.getElementById('subscriptionDetailModal').classList.contains('show')) {
+            bootstrap.Modal.getInstance(document.getElementById('subscriptionDetailModal')).hide();
+        }
+
+        // Устанавливаем ID подписки
+        document.getElementById('extendSubId').value = subscriptionId;
+
+        // Сбрасываем форму
+        document.getElementById('extendSubscriptionForm').reset();
+        document.getElementById('customDurationBlock').style.display = 'none';
+        document.getElementById('customRequestsBlock').style.display = 'none';
+
+        // Показываем модальное окно
+        const modal = new bootstrap.Modal(document.getElementById('extendSubscriptionModal'));
+        modal.show();
+    }
+
+    // Функция для подтверждения продления подписки
+    function confirmExtendSubscription() {
+        const formData = new FormData(document.getElementById('extendSubscriptionForm'));
+        const subscriptionId = formData.get('id');
+
+        // Преобразуем данные формы в объект
+        let duration = formData.get('duration');
+        if (duration === 'custom') {
+            duration = formData.get('customDuration');
+        }
+
+        let requestAction = formData.get('addRequests');
+        let customRequests = null;
+        if (requestAction === 'custom') {
+            customRequests = formData.get('customRequests');
+        }
+
+        const extensionData = {
+            subscriptionId: subscriptionId,
+            duration: parseInt(duration),
+            requestAction: requestAction,
+            customRequests: customRequests ? parseInt(customRequests) : null,
+            notifyUser: formData.get('notifyUser') === 'on'
+        };
+
+        // Отправляем запрос на продление
+        fetch(`/admin/api/subscriptions/${subscriptionId}/extend`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="_csrf"]')?.getAttribute('content') || ''
+            },
+            body: JSON.stringify(extensionData)
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Ошибка при продлении подписки');
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Закрываем модальное окно и перезагружаем страницу
+                bootstrap.Modal.getInstance(document.getElementById('extendSubscriptionModal')).hide();
+                alert('Подписка успешно продлена');
+                window.location.reload();
+            })
+            .catch(error => {
+                console.error('Ошибка:', error);
+                alert('Произошла ошибка при продлении подписки. Пожалуйста, попробуйте позже.');
+            });
+    }
+
+    // Функция для сброса оставшихся запросов
+    function resetSubscriptionRequests(subscriptionId) {
+        if (!confirm('Вы действительно хотите сбросить количество оставшихся запросов до максимального значения по тарифу?')) {
+            return;
+        }
+
+        fetch(`/admin/api/subscriptions/${subscriptionId}/reset-requests`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="_csrf"]')?.getAttribute('content') || ''
+            }
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Ошибка при сбросе запросов');
+                }
+                return response.json();
+            })
+            .then(data => {
+                alert('Количество запросов успешно сброшено');
+                window.location.reload();
+            })
+            .catch(error => {
+                console.error('Ошибка:', error);
+                alert('Произошла ошибка при сбросе запросов. Пожалуйста, попробуйте позже.');
+            });
+    }
+
+    // Функция для отмены подписки
+    function cancelSubscription(subscriptionId) {
+        if (!confirm('Вы действительно хотите отменить эту подписку? Пользователь потеряет доступ к функциям бота.')) {
+            return;
+        }
+
+        fetch(`/admin/api/subscriptions/${subscriptionId}/cancel`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="_csrf"]')?.getAttribute('content') || ''
+            }
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Ошибка при отмене подписки');
+                }
+                return response.json();
+            })
+            .then(data => {
+                alert('Подписка успешно отменена');
+                window.location.reload();
+            })
+            .catch(error => {
+                console.error('Ошибка:', error);
+                alert('Произошла ошибка при отмене подписки. Пожалуйста, попробуйте позже.');
+            });
+    }
+</script>
+</body>
+</html>

@@ -2,11 +2,11 @@ package com.chatassist.cozetalk.bot.handler;
 
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
+import org.telegram.telegrambots.meta.api.methods.ActionType;
 import org.telegram.telegrambots.meta.api.methods.send.SendChatAction;
-import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Message;
+import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
-
 import com.chatassist.cozetalk.bot.keyboard.InlineKeyboardFactory;
 import com.chatassist.cozetalk.domain.dto.CozeResponse;
 import com.chatassist.cozetalk.service.CozeService;
@@ -95,9 +95,10 @@ public class MessageHandler {
 
     private void sendTypingAction(Long chatId) {
         try {
-            bot.execute(new SendChatAction()
-                    .setChatId(chatId)
-                    .setAction(org.telegram.telegrambots.meta.api.objects.ChatAction.TYPING));
+            SendChatAction action = new SendChatAction();
+            action.setChatId(chatId);
+            action.setAction(ActionType.TYPING);
+            bot.execute(action);
         } catch (TelegramApiException e) {
             log.warn("Ошибка отправки статуса набора текста: {}", e.getMessage());
         }

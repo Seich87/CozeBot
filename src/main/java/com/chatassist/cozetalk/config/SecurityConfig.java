@@ -13,21 +13,22 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .csrf().disable()
-                .authorizeRequests()
-                // Открытые эндпоинты для веб-хуков и API
-                .requestMatchers("/bot/**", "/api/payment/callback").permitAll()
-                // Защита админ-панели
-                .requestMatchers("/admin/**").hasRole("ADMIN")
-                // Все остальные запросы требуют аутентификации
-                .anyRequest().authenticated()
-                .and()
-                .formLogin()
-                .loginPage("/login")
-                .permitAll()
-                .and()
-                .logout()
-                .permitAll();
+                .csrf(csrf -> csrf.disable())
+                .authorizeHttpRequests(authorize -> authorize
+                        // Открытые эндпоинты для веб-хуков и API
+                        .requestMatchers("/bot/**", "/api/payment/callback").permitAll()
+                        // Защита админ-панели
+                        .requestMatchers("/admin/**").hasRole("ADMIN")
+                        // Все остальные запросы требуют аутентификации
+                        .anyRequest().authenticated()
+                )
+                .formLogin(form -> form
+                        .loginPage("/login")
+                        .permitAll()
+                )
+                .logout(logout -> logout
+                        .permitAll()
+                );
 
         return http.build();
     }

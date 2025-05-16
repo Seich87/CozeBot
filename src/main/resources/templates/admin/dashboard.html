@@ -1,353 +1,439 @@
 <!DOCTYPE html>
-<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CozeTalk - Панель управления</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <title>CozeTalk - Панель администратора</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f8f9fa;
-        }
         .sidebar {
-            min-height: 100vh;
-            background-color: #212529;
-            color: white;
-            padding-top: 20px;
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            z-index: 100;
+            padding: 48px 0 0;
+            box-shadow: inset -1px 0 0 rgba(0, 0, 0, .1);
         }
-        .sidebar a {
-            color: #adb5bd;
-            text-decoration: none;
+
+        .sidebar-sticky {
+            position: relative;
+            top: 0;
+            height: calc(100vh - 48px);
+            padding-top: .5rem;
+            overflow-x: hidden;
+            overflow-y: auto;
+        }
+
+        .nav-link {
+            color: #333;
+            font-weight: 500;
+        }
+
+        .nav-link.active {
+            color: #0d6efd;
+        }
+
+        .card-counter {
+            padding: 20px 10px;
+            background-color: #fff;
+            height: 100px;
+            border-radius: 5px;
+            transition: .3s linear all;
+            box-shadow: 0 4px 8px rgba(0,0,0,.1);
+        }
+
+        .card-counter.primary {
+            background: linear-gradient(45deg, #4099ff, #73b4ff);
+            color: #FFF;
+        }
+
+        .card-counter.success {
+            background: linear-gradient(45deg, #2ed8b6, #59e0c5);
+            color: #FFF;
+        }
+
+        .card-counter.info {
+            background: linear-gradient(45deg, #ffb64d, #ffcb80);
+            color: #FFF;
+        }
+
+        .card-counter i {
+            font-size: 4em;
+            opacity: 0.3;
+        }
+
+        .card-counter .count-numbers {
+            position: absolute;
+            right: 35px;
+            top: 15px;
+            font-size: 32px;
             display: block;
-            padding: 10px 15px;
-            transition: all 0.3s;
         }
-        .sidebar a:hover, .sidebar a.active {
-            background-color: #495057;
-            color: white;
-        }
-        .sidebar a.active {
-            border-left: 4px solid #0d6efd;
-        }
-        .sidebar .bi {
-            margin-right: 10px;
-        }
-        .content {
-            padding: 20px;
-        }
-        .card {
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            margin-bottom: 20px;
-        }
-        .card-header {
-            border-radius: 10px 10px 0 0 !important;
-            font-weight: 600;
-        }
-        .statistics-card {
-            text-align: center;
-            transition: all 0.3s;
-        }
-        .statistics-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
-        }
-        .statistics-card .number {
-            font-size: 2.5rem;
-            font-weight: 700;
-            color: #0d6efd;
-        }
-        .statistics-card .label {
-            font-size: 1rem;
-            color: #6c757d;
-        }
-        .chart-container {
-            height: 300px;
-        }
-        .navbar-brand {
-            font-weight: 700;
-            font-size: 1.5rem;
-        }
-        .navbar-brand span {
-            color: #0d6efd;
-        }
-        .payment-item {
-            transition: all 0.3s;
-        }
-        .payment-item:hover {
-            background-color: #f8f9fa;
-        }
-        .badge-success {
-            background-color: #28a745;
-            color: white;
-        }
-        .badge-pending {
-            background-color: #ffc107;
-            color: #212529;
-        }
-        .badge-failed {
-            background-color: #dc3545;
-            color: white;
+
+        .card-counter .count-name {
+            position: absolute;
+            right: 35px;
+            top: 65px;
+            font-style: italic;
+            text-transform: capitalize;
+            opacity: 0.8;
+            display: block;
+            font-size: 14px;
         }
     </style>
 </head>
 <body>
+<header class="navbar navbar-dark sticky-top bg-dark flex-md-nowrap p-0 shadow">
+    <a class="navbar-brand col-md-3 col-lg-2 me-0 px-3" href="#">CozeTalk Admin</a>
+    <button class="navbar-toggler position-absolute d-md-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sidebarMenu" aria-controls="sidebarMenu" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="navbar-nav">
+        <div class="nav-item text-nowrap">
+            <form th:action="@{/logout}" method="post">
+                <button class="nav-link px-3 bg-dark border-0" type="submit">Выйти</button>
+            </form>
+        </div>
+    </div>
+</header>
+
 <div class="container-fluid">
     <div class="row">
-        <!-- Боковая панель -->
-        <div class="col-md-2 p-0 sidebar">
-            <div class="text-center mb-4">
-                <h3 class="navbar-brand text-white mb-0">Coze<span>Talk</span></h3>
-                <p class="text-muted mb-0">Админ-панель</p>
+        <nav id="sidebarMenu" class="col-md-3 col-lg-2 d-md-block bg-light sidebar collapse">
+            <div class="position-sticky sidebar-sticky">
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link active" th:href="@{/admin/dashboard}">
+                            <i class="bi bi-speedometer2 me-2"></i>
+                            Панель управления
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" th:href="@{/admin/users}">
+                            <i class="bi bi-people me-2"></i>
+                            Пользователи
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" th:href="@{/admin/subscriptions}">
+                            <i class="bi bi-card-checklist me-2"></i>
+                            Подписки
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" th:href="@{/admin/payments}">
+                            <i class="bi bi-currency-dollar me-2"></i>
+                            Платежи
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
+                            <span>Настройки</span>
+                        </h6>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" th:href="@{/admin/settings/bot}">
+                            <i class="bi bi-robot me-2"></i>
+                            Настройки бота
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" th:href="@{/admin/settings/tariff}">
+                            <i class="bi bi-tags me-2"></i>
+                            Тарифные планы
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" th:href="@{/admin/settings/webhook}">
+                            <i class="bi bi-link-45deg me-2"></i>
+                            Webhook настройки
+                        </a>
+                    </li>
+                </ul>
             </div>
-            <hr class="mb-3">
-            <a href="/admin/dashboard" class="active">
-                <i class="bi bi-speedometer2"></i> Панель управления
-            </a>
-            <a href="/admin/users">
-                <i class="bi bi-people"></i> Пользователи
-            </a>
-            <a href="/admin/subscriptions">
-                <i class="bi bi-credit-card"></i> Подписки
-            </a>
-            <a href="/admin/payments">
-                <i class="bi bi-cash-coin"></i> Платежи
-            </a>
-            <a href="/admin/logs">
-                <i class="bi bi-journal-text"></i> Логи запросов
-            </a>
-            <a href="/admin/settings">
-                <i class="bi bi-gear"></i> Настройки
-            </a>
-            <hr class="my-3">
-            <a href="/logout" class="text-danger">
-                <i class="bi bi-box-arrow-right"></i> Выход
-            </a>
-        </div>
+        </nav>
 
-        <!-- Основной контент -->
-        <div class="col-md-10 content">
-            <!-- Верхняя навигация -->
-            <nav class="navbar navbar-expand-lg navbar-light bg-white mb-4 rounded shadow-sm">
-                <div class="container-fluid">
-                        <span class="navbar-text">
-                            <i class="bi bi-speedometer2"></i> Панель управления
-                        </span>
-                    <div class="ms-auto">
-                            <span class="navbar-text me-3">
-                                <i class="bi bi-calendar"></i> <span th:text="${#dates.format(#dates.createNow(), 'dd.MM.yyyy')}">01.01.2024</span>
-                            </span>
-                        <span class="navbar-text">
-                                <i class="bi bi-person-circle"></i> <span th:text="${#authentication.name}">Admin</span>
-                            </span>
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                <h1 class="h2">Панель управления</h1>
+                <div class="btn-toolbar mb-2 mb-md-0">
+                    <div class="btn-group me-2">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="refreshBtn">
+                            <i class="bi bi-arrow-clockwise"></i> Обновить
+                        </button>
+                    </div>
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="periodDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-calendar3"></i> За последние 30 дней
+                        </button>
+                        <ul class="dropdown-menu" aria-labelledby="periodDropdown">
+                            <li><a class="dropdown-item" href="#" data-period="7">За последние 7 дней</a></li>
+                            <li><a class="dropdown-item" href="#" data-period="30">За последние 30 дней</a></li>
+                            <li><a class="dropdown-item" href="#" data-period="90">За последние 90 дней</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="#" data-period="all">За всё время</a></li>
+                        </ul>
                     </div>
                 </div>
-            </nav>
+            </div>
 
-            <!-- Основные показатели -->
-            <div class="row">
-                <div class="col-md-3">
-                    <div class="card statistics-card">
-                        <div class="card-body">
-                            <div class="number" th:text="${userCount}">500</div>
-                            <div class="label">Пользователей</div>
-                        </div>
+            <!-- Карточки статистики -->
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <div class="card-counter primary">
+                        <i class="bi bi-people"></i>
+                        <span class="count-numbers" th:text="${totalUsers}">0</span>
+                        <span class="count-name">Пользователей</span>
                     </div>
                 </div>
-                <div class="col-md-3">
-                    <div class="card statistics-card">
-                        <div class="card-body">
-                            <div class="number" th:text="${activeSubscriptionsCount}">350</div>
-                            <div class="label">Активных подписок</div>
-                        </div>
+                <div class="col-md-4">
+                    <div class="card-counter success">
+                        <i class="bi bi-card-checklist"></i>
+                        <span class="count-numbers" th:text="${activeSubscriptions}">0</span>
+                        <span class="count-name">Активных подписок</span>
                     </div>
                 </div>
-                <div class="col-md-3">
-                    <div class="card statistics-card">
-                        <div class="card-body">
-                            <div class="number" th:text="${requestsLastDay}">1250</div>
-                            <div class="label">Запросов за 24ч</div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="card statistics-card">
-                        <div class="card-body">
-                            <div class="number" th:text="${totalRequests}">54720</div>
-                            <div class="label">Всего запросов</div>
-                        </div>
+                <div class="col-md-4">
+                    <div class="card-counter info">
+                        <i class="bi bi-chat-dots"></i>
+                        <span class="count-numbers" th:text="${totalRequests}">0</span>
+                        <span class="count-name">Запросов</span>
                     </div>
                 </div>
             </div>
 
             <!-- Графики -->
-            <div class="row mt-4">
-                <div class="col-md-8">
+            <div class="row mb-4">
+                <div class="col-md-6">
                     <div class="card">
-                        <div class="card-header bg-white">
-                            <i class="bi bi-graph-up"></i> Активность пользователей (последние 7 дней)
+                        <div class="card-header">
+                            Новые пользователи
                         </div>
                         <div class="card-body">
-                            <div class="chart-container">
-                                <canvas id="usersActivityChart"></canvas>
-                            </div>
+                            <canvas id="newUsersChart"></canvas>
                         </div>
                     </div>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-6">
                     <div class="card">
-                        <div class="card-header bg-white">
-                            <i class="bi bi-pie-chart"></i> Распределение тарифов
+                        <div class="card-header">
+                            Доходы
                         </div>
                         <div class="card-body">
-                            <div class="chart-container">
-                                <canvas id="tariffDistributionChart"></canvas>
-                            </div>
+                            <canvas id="revenueChart"></canvas>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Недавние платежи -->
-            <div class="row mt-4">
-                <div class="col-12">
+            <div class="row mb-4">
+                <div class="col-md-12">
                     <div class="card">
-                        <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                            <div>
-                                <i class="bi bi-cash-coin"></i> Последние платежи
-                            </div>
-                            <a href="/admin/payments" class="btn btn-sm btn-outline-primary">Смотреть все</a>
+                        <div class="card-header">
+                            Активность запросов
                         </div>
-                        <div class="card-body p-0">
-                            <div class="table-responsive">
-                                <table class="table table-hover mb-0">
-                                    <thead>
-                                    <tr>
-                                        <th>ID</th>
-                                        <th>Пользователь</th>
-                                        <th>Тариф</th>
-                                        <th>Сумма</th>
-                                        <th>Дата</th>
-                                        <th>Статус</th>
-                                    </tr>
-                                    </thead>
-                                    <tbody>
-                                    <tr th:each="payment : ${recentPayments}" class="payment-item">
-                                        <td th:text="${payment.id}">1</td>
-                                        <td>
-                                            <a th:href="@{/admin/user/{id}(id=${payment.user.telegramId})}"
-                                               th:text="${payment.user.username != null ? payment.user.username : payment.user.telegramId}">
-                                                @username
-                                            </a>
-                                        </td>
-                                        <td th:text="${payment.tariffPlan}">Ловелас</td>
-                                        <td th:text="${payment.amount + ' ' + payment.currency}">4990 RUB</td>
-                                        <td th:text="${#dates.format(payment.createdAt, 'dd.MM.yyyy HH:mm')}">01.01.2024 12:34</td>
-                                        <td>
-                                                    <span th:class="${'badge ' +
-                                                        (payment.status == 'SUCCEEDED' ? 'badge-success' :
-                                                        (payment.status == 'PENDING' ? 'badge-pending' : 'badge-failed'))}"
-                                                          th:text="${payment.status}">
-                                                        SUCCEEDED
-                                                    </span>
-                                        </td>
-                                    </tr>
-                                    <tr th:if="${recentPayments.empty}">
-                                        <td colspan="6" class="text-center py-3">Нет платежей</td>
-                                    </tr>
-                                    </tbody>
-                                </table>
-                            </div>
+                        <div class="card-body">
+                            <canvas id="requestsChart"></canvas>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
+
+            <!-- Последние платежи -->
+            <h2 class="h4 mb-3">Последние платежи</h2>
+            <div class="table-responsive mb-4">
+                <table class="table table-striped table-hover">
+                    <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Пользователь</th>
+                        <th>Сумма</th>
+                        <th>Тарифный план</th>
+                        <th>Дата</th>
+                        <th>Статус</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="payment : ${recentPayments}">
+                        <td th:text="${payment.id}">1</td>
+                        <td th:text="${payment.user.telegramUsername}">@username</td>
+                        <td th:text="${payment.amount + ' ₽'}">499 ₽</td>
+                        <td th:text="${payment.tariffPlan.displayName}">Стандартный</td>
+                        <td th:text="${#temporals.format(payment.createdAt, 'dd.MM.yyyy HH:mm')}">01.05.2023 14:30</td>
+                        <td>
+                            <span class="badge rounded-pill text-bg-success" th:if="${payment.status.name() == 'COMPLETED'}">Выполнен</span>
+                            <span class="badge rounded-pill text-bg-warning" th:if="${payment.status.name() == 'PENDING'}">В обработке</span>
+                            <span class="badge rounded-pill text-bg-danger" th:if="${payment.status.name() == 'FAILED'}">Ошибка</span>
+                        </td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(recentPayments)}">
+                        <td colspan="6" class="text-center">Нет данных о платежах</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Последние пользователи -->
+            <h2 class="h4 mb-3">Новые пользователи</h2>
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Telegram ID</th>
+                        <th>Имя пользователя</th>
+                        <th>Имя</th>
+                        <th>Дата регистрации</th>
+                        <th>Статус подписки</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="user : ${recentUsers}">
+                        <td th:text="${user.id}">1</td>
+                        <td th:text="${user.telegramId}">12345678</td>
+                        <td th:text="${user.telegramUsername}">@username</td>
+                        <td th:text="${user.firstName + ' ' + user.lastName}">Иван Иванов</td>
+                        <td th:text="${#temporals.format(user.createdAt, 'dd.MM.yyyy HH:mm')}">01.05.2023 14:30</td>
+                        <td>
+                            <span class="badge rounded-pill text-bg-success" th:if="${user.hasActiveSubscription}">Активна</span>
+                            <span class="badge rounded-pill text-bg-secondary" th:unless="${user.hasActiveSubscription}">Не активна</span>
+                        </td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(recentUsers)}">
+                        <td colspan="6" class="text-center">Нет данных о новых пользователях</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </main>
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-    // Данные для графика активности пользователей
-    const usersActivityData = {
-        labels: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'],
-        datasets: [
-            {
-                label: 'Запросы',
-                data: [120, 190, 150, 170, 180, 120, 130],
-                borderColor: '#0d6efd',
-                backgroundColor: 'rgba(13, 110, 253, 0.1)',
-                borderWidth: 2,
-                fill: true,
-                tension: 0.4
-            },
-            {
-                label: 'Новые пользователи',
-                data: [10, 15, 12, 14, 20, 15, 10],
-                borderColor: '#20c997',
-                backgroundColor: 'rgba(32, 201, 151, 0.1)',
-                borderWidth: 2,
-                fill: true,
-                tension: 0.4
-            }
-        ]
-    };
 
-    // Данные для графика распределения тарифов
-    const tariffDistributionData = {
-        labels: ['Романтик', 'Альфач', 'Ловелас'],
-        datasets: [{
-            data: [125, 180, 45],
-            backgroundColor: ['#0d6efd', '#20c997', '#dc3545'],
-            hoverOffset: 4
-        }]
-    };
+<script th:inline="javascript">
+    // Получаем данные с сервера
+    const usersData = /*[[${usersChartData}]]*/ [];
+    const revenueData = /*[[${revenueChartData}]]*/ [];
+    const requestsData = /*[[${requestsChartData}]]*/ [];
 
-    // Инициализация графиков
+    // Инициализируем графики
     document.addEventListener('DOMContentLoaded', function() {
-        // График активности пользователей
-        const usersActivityChart = new Chart(
-            document.getElementById('usersActivityChart'),
-            {
-                type: 'line',
-                data: usersActivityData,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'top',
-                        }
+        // График новых пользователей
+        const newUsersCtx = document.getElementById('newUsersChart').getContext('2d');
+        const newUsersChart = new Chart(newUsersCtx, {
+            type: 'line',
+            data: {
+                labels: usersData.map(item => item.date),
+                datasets: [{
+                    label: 'Новые пользователи',
+                    data: usersData.map(item => item.count),
+                    borderColor: 'rgba(64, 153, 255, 1)',
+                    backgroundColor: 'rgba(64, 153, 255, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
                     },
-                    scales: {
-                        y: {
-                            beginAtZero: true
+                    title: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0
                         }
                     }
                 }
             }
-        );
+        });
 
-        // График распределения тарифов
-        const tariffDistributionChart = new Chart(
-            document.getElementById('tariffDistributionChart'),
-            {
-                type: 'pie',
-                data: tariffDistributionData,
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
+        // График доходов
+        const revenueCtx = document.getElementById('revenueChart').getContext('2d');
+        const revenueChart = new Chart(revenueCtx, {
+            type: 'bar',
+            data: {
+                labels: revenueData.map(item => item.date),
+                datasets: [{
+                    label: 'Доход (₽)',
+                    data: revenueData.map(item => item.amount),
+                    backgroundColor: 'rgba(46, 216, 182, 0.7)',
+                    borderColor: 'rgba(46, 216, 182, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+
+        // График запросов
+        const requestsCtx = document.getElementById('requestsChart').getContext('2d');
+        const requestsChart = new Chart(requestsCtx, {
+            type: 'line',
+            data: {
+                labels: requestsData.map(item => item.date),
+                datasets: [{
+                    label: 'Запросы',
+                    data: requestsData.map(item => item.count),
+                    borderColor: 'rgba(255, 182, 77, 1)',
+                    backgroundColor: 'rgba(255, 182, 77, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0
                         }
                     }
                 }
             }
-        );
+        });
+
+        // Обработчик кнопки обновления
+        document.getElementById('refreshBtn').addEventListener('click', function() {
+            window.location.reload();
+        });
+
+        // Обработчик периода времени
+        document.querySelectorAll('[data-period]').forEach(item => {
+            item.addEventListener('click', function(e) {
+                e.preventDefault();
+                const period = this.getAttribute('data-period');
+                window.location.href = '/admin/dashboard?period=' + period;
+            });
+        });
     });
 </script>
 </body>

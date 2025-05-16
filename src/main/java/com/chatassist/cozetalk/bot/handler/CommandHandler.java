@@ -29,7 +29,6 @@ public class CommandHandler {
     private final TelegramLongPollingBot bot;
     private final UserService userService;
     private final SubscriptionService subscriptionService;
-    private final PaymentService paymentService;
     private final InlineKeyboardFactory inlineKeyboardFactory;
     private final ReplyKeyboardFactory replyKeyboardFactory;
 

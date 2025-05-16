@@ -1,0 +1,1204 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CozeTalk - Управление пользователями</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        .sidebar {
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            z-index: 100;
+            padding: 48px 0 0;
+            box-shadow: inset -1px 0 0 rgba(0, 0, 0, .1);
+        }
+
+        .sidebar-sticky {
+            position: relative;
+            top: 0;
+            height: calc(100vh - 48px);
+            padding-top: .5rem;
+            overflow-x: hidden;
+            overflow-y: auto;
+        }
+
+        .nav-link {
+            color: #333;
+            font-weight: 500;
+        }
+
+        .nav-link.active {
+            color: #0d6efd;
+        }
+
+        .user-status {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+        }
+
+        .user-status.active {
+            background-color: #2ed8b6;
+        }
+
+        .user-status.inactive {
+            background-color: #999;
+        }
+
+        .user-status.blocked {
+            background-color: #ff5370;
+        }
+
+        .avatar-circle {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            background-color: #e9ecef;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: #6c757d;
+        }
+
+        .avatar-circle.premium {
+            background-color: #ffc107;
+            color: #212529;
+        }
+
+        .table-hover tbody tr:hover {
+            background-color: rgba(13, 110, 253, 0.05);
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+<header class="navbar navbar-dark sticky-top bg-dark flex-md-nowrap p-0 shadow">
+    <a class="navbar-brand col-md-3 col-lg-2 me-0 px-3" href="#">CozeTalk Admin</a>
+    <button class="navbar-toggler position-absolute d-md-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sidebarMenu" aria-controls="sidebarMenu" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="navbar-nav">
+        <div class="nav-item text-nowrap">
+            <form th:action="@{/logout}" method="post">
+                <button class="nav-link px-3 bg-dark border-0" type="submit">Выйти</button>
+            </form>
+        </div>
+    </div>
+</header>
+
+<div class="container-fluid">
+    <div class="row">
+        <nav id="sidebarMenu" class="col-md-3 col-lg-2 d-md-block bg-light sidebar collapse">
+            <div class="position-sticky sidebar-sticky">
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link" th:href="@{/admin/dashboard}">
+                            <i class="bi bi-speedometer2 me-2"></i>
+                            Панель управления
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" th:href="@{/admin/users}">
+                            <i class="bi bi-people me-2"></i>
+                            Пользователи
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" th:href="@{/admin/subscriptions}">
+                            <i class="bi bi-card-checklist me-2"></i>
+                            Подписки
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" th:href="@{/admin/payments}">
+                            <i class="bi bi-currency-dollar me-2"></i>
+                            Платежи
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
+                            <span>Настройки</span>
+                        </h6>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" th:href="@{/admin/settings/bot}">
+                            <i class="bi bi-robot me-2"></i>
+                            Настройки бота
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" th:href="@{/admin/settings/tariff}">
+                            <i class="bi bi-tags me-2"></i>
+                            Тарифные планы
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" th:href="@{/admin/settings/webhook}">
+                            <i class="bi bi-link-45deg me-2"></i>
+                            Webhook настройки
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                <h1 class="h2">Управление пользователями</h1>
+                <div class="btn-toolbar mb-2 mb-md-0">
+                    <div class="btn-group me-2">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="exportBtn">
+                            <i class="bi bi-download"></i> Экспорт в CSV
+                        </button>
+                    </div>
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="userPeriodDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-calendar3"></i>
+                            <span id="selectedPeriodText">Все пользователи</span>
+                        </button>
+                        <ul class="dropdown-menu" aria-labelledby="userPeriodDropdown">
+                            <li><a class="dropdown-item" href="#" data-period="active">Активные</a></li>
+                            <li><a class="dropdown-item" href="#" data-period="inactive">Неактивные</a></li>
+                            <li><a class="dropdown-item" href="#" data-period="new-7">Новые за 7 дней</a></li>
+                            <li><a class="dropdown-item" href="#" data-period="new-30">Новые за 30 дней</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="#" data-period="all">Все пользователи</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Сводная информация -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card text-bg-light">
+                        <div class="card-body">
+                            <h5 class="card-title">Всего пользователей</h5>
+                            <p class="card-text h3" th:text="${userStats.totalCount}">0</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-bg-success">
+                        <div class="card-body">
+                            <h5 class="card-title">С активной подпиской</h5>
+                            <p class="card-text h3" th:text="${userStats.activeCount}">0</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-bg-warning">
+                        <div class="card-body">
+                            <h5 class="card-title">Новых за 7 дней</h5>
+                            <p class="card-text h3" th:text="${userStats.newWeekCount}">0</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-bg-info">
+                        <div class="card-body">
+                            <h5 class="card-title">Новых за 30 дней</h5>
+                            <p class="card-text h3" th:text="${userStats.newMonthCount}">0</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            Активность новых пользователей
+                        </div>
+                        <div class="card-body">
+                            <canvas id="newUsersChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            Конверсия в платящих пользователей
+                        </div>
+                        <div class="card-body">
+                            <canvas id="conversionChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Фильтры -->
+            <div class="row mb-3">
+                <div class="col-md-12">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">Фильтры</h5>
+                            <form th:action="@{/admin/users}" method="get" class="row g-3">
+                                <div class="col-md-3">
+                                    <label for="userUsername" class="form-label">Имя пользователя</label>
+                                    <input type="text" class="form-control" id="userUsernameFilter" name="username" th:value="${param.username}">
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="userTelegramId" class="form-label">Telegram ID</label>
+                                    <input type="text" class="form-control" id="userTelegramId" name="telegramId" th:value="${param.telegramId}">
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="userStatus" class="form-label">Статус подписки</label>
+                                    <select class="form-select" id="userStatus" name="status">
+                                        <option value="">Все статусы</option>
+                                        <option value="active" th:selected="${param.status == 'active'}">Активная подписка</option>
+                                        <option value="inactive" th:selected="${param.status == 'inactive'}">Без подписки</option>
+                                        <option value="blocked" th:selected="${param.status == 'blocked'}">Заблокированные</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="userRegDateStart" class="form-label">Регистрация с</label>
+                                    <input type="date" class="form-control" id="userRegDateStart" name="regDateStart" th:value="${param.regDateStart}">
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="userRegDateEnd" class="form-label">Регистрация по</label>
+                                    <input type="date" class="form-control" id="userRegDateEnd" name="regDateEnd" th:value="${param.regDateEnd}">
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="userTariffPlan" class="form-label">Текущий тариф</label>
+                                    <select class="form-select" id="userTariffPlan" name="tariffPlan">
+                                        <option value="">Все тарифы</option>
+                                        <option value="none" th:selected="${param.tariffPlan == 'none'}">Без тарифа</option>
+                                        <option th:each="plan : ${tariffPlans}"
+                                                th:value="${plan}"
+                                                th:text="${plan.displayName}"
+                                                th:selected="${param.tariffPlan == plan}"></option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6 d-flex align-items-end">
+                                    <div class="d-grid gap-2 d-md-flex justify-content-md-end w-100">
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="bi bi-search"></i> Применить фильтры
+                                        </button>
+                                        <a th:href="@{/admin/users}" class="btn btn-outline-secondary">
+                                            <i class="bi bi-x-circle"></i> Сбросить
+                                        </a>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Таблица пользователей -->
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead>
+                    <tr>
+                        <th scope="col">
+                            <a th:href="@{/admin/users(sort='id', direction=${param.direction == 'asc' && param.sort == 'id' ? 'desc' : 'asc'})}" class="text-decoration-none text-dark">
+                                ID
+                                <i th:if="${param.sort == 'id' && param.direction == 'asc'}" class="bi bi-arrow-up-short"></i>
+                                <i th:if="${param.sort == 'id' && param.direction == 'desc'}" class="bi bi-arrow-down-short"></i>
+                            </a>
+                        </th>
+                        <th scope="col">Аватар</th>
+                        <th scope="col">
+                            <a th:href="@{/admin/users(sort='telegramUsername', direction=${param.direction == 'asc' && param.sort == 'telegramUsername' ? 'desc' : 'asc'})}" class="text-decoration-none text-dark">
+                                Имя пользователя
+                                <i th:if="${param.sort == 'telegramUsername' && param.direction == 'asc'}" class="bi bi-arrow-up-short"></i>
+                                <i th:if="${param.sort == 'telegramUsername' && param.direction == 'desc'}" class="bi bi-arrow-down-short"></i>
+                            </a>
+                        </th>
+                        <th scope="col">
+                            <a th:href="@{/admin/users(sort='firstName', direction=${param.direction == 'asc' && param.sort == 'firstName' ? 'desc' : 'asc'})}" class="text-decoration-none text-dark">
+                                Имя
+                                <i th:if="${param.sort == 'firstName' && param.direction == 'asc'}" class="bi bi-arrow-up-short"></i>
+                                <i th:if="${param.sort == 'firstName' && param.direction == 'desc'}" class="bi bi-arrow-down-short"></i>
+                            </a>
+                        </th>
+                        <th scope="col">
+                            <a th:href="@{/admin/users(sort='telegramId', direction=${param.direction == 'asc' && param.sort == 'telegramId' ? 'desc' : 'asc'})}" class="text-decoration-none text-dark">
+                                Telegram ID
+                                <i th:if="${param.sort == 'telegramId' && param.direction == 'asc'}" class="bi bi-arrow-up-short"></i>
+                                <i th:if="${param.sort == 'telegramId' && param.direction == 'desc'}" class="bi bi-arrow-down-short"></i>
+                            </a>
+                        </th>
+                        <th scope="col">
+                            <a th:href="@{/admin/users(sort='createdAt', direction=${param.direction == 'asc' && param.sort == 'createdAt' ? 'desc' : 'asc'})}" class="text-decoration-none text-dark">
+                                Дата регистрации
+                                <i th:if="${param.sort == 'createdAt' && param.direction == 'asc'}" class="bi bi-arrow-up-short"></i>
+                                <i th:if="${param.sort == 'createdAt' && param.direction == 'desc'}" class="bi bi-arrow-down-short"></i>
+                            </a>
+                        </th>
+                        <th scope="col">Текущий тариф</th>
+                        <th scope="col">Статус</th>
+                        <th scope="col">Действия</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="user : ${users}" th:data-user-id="${user.id}"
+                        onclick="showUserDetails(this.getAttribute('data-user-id'))">
+                        <td th:text="${user.id}">1</td>
+                        <td>
+                            <div th:class="${user.hasActiveSubscription ? 'avatar-circle premium' : 'avatar-circle'}"
+                                 th:text="${user.firstName?.substring(0, 1)?.toUpperCase() ?: (user.telegramUsername?.substring(0, 1)?.toUpperCase() ?: 'U')}">
+                                U
+                            </div>
+                        </td>
+                        <td th:text="${user.telegramUsername ?: 'Н/Д'}">@username</td>
+                        <td th:text="${user.firstName + ' ' + (user.lastName ?: '')}">Иван Иванов</td>
+                        <td th:text="${user.telegramId}">12345678</td>
+                        <td th:text="${#temporals.format(user.createdAt, 'dd.MM.yyyy HH:mm')}">01.05.2023 14:30</td>
+                        <td>
+                            <span th:if="${user.currentSubscription}" th:text="${user.currentSubscription.tariffPlan.displayName}">Стандартный</span>
+                            <span th:unless="${user.currentSubscription}" class="text-muted">Без тарифа</span>
+                        </td>
+                        <td>
+                                    <span th:if="${user.hasActiveSubscription}" class="badge text-bg-success">
+                                        <i class="bi bi-check-circle-fill"></i> Активен
+                                    </span>
+                            <span th:unless="${user.hasActiveSubscription}" class="badge text-bg-secondary">
+                                        <i class="bi bi-x-circle-fill"></i> Неактивен
+                                    </span>
+                        </td>
+                        <td>
+                            <div class="btn-group" role="group" onclick="event.stopPropagation()">
+                                <button class="btn btn-sm btn-outline-primary" title="Написать"
+                                        th:data-user-id="${user.id}" th:data-telegram-id="${user.telegramId}"
+                                        onclick="sendMessage(this.getAttribute('data-user-id'), this.getAttribute('data-telegram-id'))">
+                                    <i class="bi bi-chat-dots"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-success" title="Создать подписку"
+                                        th:if="${!user.hasActiveSubscription}"
+                                        th:data-user-id="${user.id}" onclick="createSubscription(this.getAttribute('data-user-id'))">
+                                    <i class="bi bi-plus-circle"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" title="Заблокировать"
+                                        th:unless="${user.blocked}"
+                                        th:data-user-id="${user.id}" onclick="blockUser(this.getAttribute('data-user-id'))">
+                                    <i class="bi bi-slash-circle"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-warning" title="Разблокировать"
+                                        th:if="${user.blocked}"
+                                        th:data-user-id="${user.id}" onclick="unblockUser(this.getAttribute('data-user-id'))">
+                                    <i class="bi bi-unlock"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(users)}">
+                        <td colspan="9" class="text-center">Пользователи не найдены</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Пагинация -->
+            <nav th:if="${totalPages > 1}" aria-label="Pagination">
+                <ul class="pagination justify-content-center">
+                    <li class="page-item" th:classappend="${currentPage == 0 ? 'disabled' : ''}">
+                        <a class="page-link" th:href="@{/admin/users(page=${currentPage - 1})}" aria-label="Previous">
+                            <span aria-hidden="true">&laquo;</span>
+                        </a>
+                    </li>
+                    <li class="page-item" th:each="i : ${#numbers.sequence(0, totalPages - 1)}"
+                        th:classappend="${currentPage == i ? 'active' : ''}">
+                        <a class="page-link" th:href="@{/admin/users(page=${i})}" th:text="${i + 1}">1</a>
+                    </li>
+                    <li class="page-item" th:classappend="${currentPage == totalPages - 1 ? 'disabled' : ''}">
+                        <a class="page-link" th:href="@{/admin/users(page=${currentPage + 1})}" aria-label="Next">
+                            <span aria-hidden="true">&raquo;</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </main>
+    </div>
+</div>
+
+<!-- Модальное окно с деталями пользователя -->
+<div class="modal fade" id="userDetailModal" tabindex="-1" aria-labelledby="userDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="userDetailModalLabel">Информация о пользователе</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center" id="userDetailLoader">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Загрузка...</span>
+                    </div>
+                    <p>Загрузка данных пользователя...</p>
+                </div>
+                <div id="userDetailContent" style="display: none;">
+                    <div class="row mb-3">
+                        <div class="col-md-12 d-flex align-items-center mb-3">
+                            <div id="userAvatar" class="avatar-circle me-3"></div>
+                            <div>
+                                <h4 id="userName" class="mb-0"></h4>
+                                <p id="userUsername" class="text-muted mb-0"></p>
+                            </div>
+                            <div class="ms-auto">
+                                <span id="userStatusBadge" class="badge"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <h6>Основная информация</h6>
+                            <table class="table table-sm">
+                                <tr>
+                                    <th>ID пользователя:</th>
+                                    <td id="userId"></td>
+                                </tr>
+                                <tr>
+                                    <th>Telegram ID:</th>
+                                    <td id="userTelegramIdInfo"></td>
+                                </tr>
+                                <tr>
+                                    <th>Имя:</th>
+                                    <td id="userFirstName"></td>
+                                </tr>
+                                <tr>
+                                    <th>Фамилия:</th>
+                                    <td id="userLastName"></td>
+                                </tr>
+                                <tr>
+                                    <th>Язык:</th>
+                                    <td id="userLanguageCode"></td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Регистрация и активность</h6>
+                            <table class="table table-sm">
+                                <tr>
+                                    <th>Дата регистрации:</th>
+                                    <td id="userCreatedAt"></td>
+                                </tr>
+                                <tr>
+                                    <th>Последняя активность:</th>
+                                    <td id="userLastActivity"></td>
+                                </tr>
+                                <tr>
+                                    <th>Всего запросов:</th>
+                                    <td id="userTotalRequests"></td>
+                                </tr>
+                                <tr>
+                                    <th>Статус блокировки:</th>
+                                    <td id="userBlockedStatus"></td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <h6>Текущая подписка</h6>
+                            <div id="noSubscription" class="alert alert-warning" style="display: none;">
+                                У пользователя нет активной подписки.
+                            </div>
+                            <div id="subscriptionInfo" style="display: none;">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <table class="table table-sm">
+                                            <tr>
+                                                <th>ID подписки:</th>
+                                                <td id="subscriptionId"></td>
+                                            </tr>
+                                            <tr>
+                                                <th>Тарифный план:</th>
+                                                <td id="subscriptionTariffPlan"></td>
+                                            </tr>
+                                            <tr>
+                                                <th>Дата начала:</th>
+                                                <td id="subscriptionStartDate"></td>
+                                            </tr>
+                                            <tr>
+                                                <th>Дата окончания:</th>
+                                                <td id="subscriptionEndDate"></td>
+                                            </tr>
+                                        </table>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <table class="table table-sm">
+                                            <tr>
+                                                <th>Оставшиеся запросы:</th>
+                                                <td>
+                                                    <span id="subscriptionRemainingRequests"></span>
+                                                    <div class="progress progress-thin mt-1">
+                                                        <div class="progress-bar" id="requestsProgressBar" role="progressbar"
+                                                             style="width: 0%"
+                                                             aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <th>Осталось дней:</th>
+                                                <td id="subscriptionRemainingDays"></td>
+                                            </tr>
+                                            <tr>
+                                                <th>Статус:</th>
+                                                <td id="subscriptionStatus"></td>
+                                            </tr>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-12">
+                            <h6>История активности</h6>
+                            <div id="activityChartContainer">
+                                <canvas id="userActivityChart" height="200"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="userDetailError" class="alert alert-danger" style="display: none;">
+                    Произошла ошибка при загрузке данных пользователя. Пожалуйста, попробуйте позже.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+                <div id="userActions">
+                    <button type="button" class="btn btn-primary" id="userDetailSendMsgBtn">
+                        <i class="bi bi-chat-dots"></i> Написать
+                    </button>
+                    <button type="button" class="btn btn-success" id="createSubscriptionBtn">
+                        <i class="bi bi-plus-circle"></i> Создать подписку
+                    </button>
+                    <button type="button" class="btn btn-warning" id="viewPaymentsBtn">
+                        <i class="bi bi-currency-dollar"></i> Платежи
+                    </button>
+                    <button type="button" class="btn btn-danger" id="blockUserBtn">
+                        <i class="bi bi-slash-circle"></i> Заблокировать
+                    </button>
+                    <button type="button" class="btn btn-success" id="unblockUserBtn" style="display: none;">
+                        <i class="bi bi-unlock"></i> Разблокировать
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно для создания подписки -->
+<div class="modal fade" id="createSubscriptionModal" tabindex="-1" aria-labelledby="createSubscriptionModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="createSubscriptionModalLabel">Создание подписки</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="createSubscriptionForm">
+                    <input type="hidden" id="subscriptionUserId" name="userId">
+
+                    <div class="mb-3">
+                        <label for="subscriptionTariff" class="form-label">Тарифный план</label>
+                        <select class="form-select" id="subscriptionTariff" name="tariffPlan" required>
+                            <option value="">Выберите тарифный план</option>
+                            <option th:each="plan : ${tariffPlans}"
+                                    th:value="${plan}"
+                                    th:text="${plan.displayName}"></option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="subscriptionDuration" class="form-label">Длительность</label>
+                        <select class="form-select" id="subscriptionDuration" name="duration" required>
+                            <option value="30">30 дней</option>
+                            <option value="60">60 дней</option>
+                            <option value="90">90 дней</option>
+                            <option value="180">180 дней</option>
+                            <option value="365">365 дней</option>
+                            <option value="custom">Другой период</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3" id="customDurationBlock" style="display: none;">
+                        <label for="customDuration" class="form-label">Количество дней</label>
+                        <input type="number" class="form-control" id="customDuration" name="customDuration" min="1">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="subscriptionRequests" class="form-label">Количество запросов</label>
+                        <select class="form-select" id="subscriptionRequests" name="requests">
+                            <option value="default">По умолчанию (согласно тарифу)</option>
+                            <option value="custom">Указать вручную</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3" id="customRequestsBlock" style="display: none;">
+                        <label for="customRequests" class="form-label">Количество запросов</label>
+                        <input type="number" class="form-control" id="customRequests" name="customRequests" min="1">
+                    </div>
+
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="notifyUser" name="notifyUser" checked>
+                        <label class="form-check-label" for="notifyUser">Отправить уведомление пользователю</label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" id="saveSubscriptionBtn">Создать</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно для отправки сообщения -->
+<div class="modal fade" id="sendMessageModal" tabindex="-1" aria-labelledby="sendMessageModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="sendMessageModalLabel">Отправка сообщения</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="sendMessageForm">
+                    <input type="hidden" id="messageUserId" name="userId">
+                    <input type="hidden" id="messageTelegramId" name="telegramId">
+
+                    <div class="mb-3">
+                        <label for="messageText" class="form-label">Текст сообщения</label>
+                        <textarea class="form-control" id="messageText" name="text" rows="5" required></textarea>
+                        <div class="form-text">Поддерживается Markdown-форматирование.</div>
+                    </div>
+
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="parseMode" name="parseMode" checked>
+                        <label class="form-check-label" for="parseMode">Использовать Markdown</label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" id="sendMessageBtn">Отправить</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script th:inline="javascript">
+    // Получаем данные для графиков
+    const newUsersData = /*[[${newUsersChartData}]]*/ [];
+    const conversionData = /*[[${conversionChartData}]]*/ [];
+
+    // Инициализируем графики
+    document.addEventListener('DOMContentLoaded', function() {
+        // График новых пользователей
+        const newUsersCtx = document.getElementById('newUsersChart').getContext('2d');
+        const newUsersChart = new Chart(newUsersCtx, {
+            type: 'line',
+            data: {
+                labels: newUsersData.map(item => item.date),
+                datasets: [{
+                    label: 'Новые пользователи',
+                    data: newUsersData.map(item => item.count),
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0
+                        }
+                    }
+                }
+            }
+        });
+
+        // График конверсии
+        const conversionCtx = document.getElementById('conversionChart').getContext('2d');
+        const conversionChart = new Chart(conversionCtx, {
+            type: 'bar',
+            data: {
+                labels: conversionData.map(item => item.month),
+                datasets: [{
+                    label: 'Конверсия (%)',
+                    data: conversionData.map(item => item.rate),
+                    backgroundColor: 'rgba(153, 102, 255, 0.7)',
+                    borderColor: 'rgba(153, 102, 255, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        title: {
+                            display: true,
+                            text: '%'
+                        }
+                    }
+                }
+            }
+        });
+
+        // Настройка кастомных полей в модальных окнах
+        document.getElementById('subscriptionDuration').addEventListener('change', function() {
+            const customBlock = document.getElementById('customDurationBlock');
+            if (this.value === 'custom') {
+                customBlock.style.display = 'block';
+            } else {
+                customBlock.style.display = 'none';
+            }
+        });
+
+        document.getElementById('subscriptionRequests').addEventListener('change', function() {
+            const customBlock = document.getElementById('customRequestsBlock');
+            if (this.value === 'custom') {
+                customBlock.style.display = 'block';
+            } else {
+                customBlock.style.display = 'none';
+            }
+        });
+
+        // Экспорт в CSV
+        document.getElementById('exportBtn').addEventListener('click', function() {
+            window.location.href = '/admin/users/export?' + new URLSearchParams(window.location.search).toString();
+        });
+
+        // Обработчик фильтра периода
+        document.querySelectorAll('[data-period]').forEach(item => {
+            item.addEventListener('click', function(e) {
+                e.preventDefault();
+                const period = this.getAttribute('data-period');
+                const periodText = this.textContent.trim();
+
+                // Сохраняем текущие параметры поиска
+                const searchParams = new URLSearchParams(window.location.search);
+                searchParams.set('period', period);
+
+                // Обновляем UI
+                document.getElementById('selectedPeriodText').textContent = periodText;
+
+                // Обновляем URL с новым параметром периода
+                window.location.href = '/admin/users?' + searchParams.toString();
+            });
+        });
+
+        // Настройка кнопок действий
+        document.getElementById('saveSubscriptionBtn').addEventListener('click', saveSubscription);
+        document.getElementById('sendMessageBtn').addEventListener('click', function() {
+            const userId = document.getElementById('messageUserId').value;
+            const telegramId = document.getElementById('messageTelegramId').value;
+            const text = document.getElementById('messageText').value;
+            const parseMode = document.getElementById('parseMode').checked ? 'Markdown' : null;
+
+            sendMessageToUser(userId, telegramId, text, parseMode);
+        });
+    });
+
+    // Функция для отображения деталей пользователя
+    function showUserDetails(userId) {
+        // Показываем модальное окно
+        const modal = new bootstrap.Modal(document.getElementById('userDetailModal'));
+        modal.show();
+
+        // Показываем индикатор загрузки
+        document.getElementById('userDetailLoader').style.display = 'block';
+        document.getElementById('userDetailContent').style.display = 'none';
+        document.getElementById('userDetailError').style.display = 'none';
+
+        // Загружаем данные пользователя через AJAX
+        fetch(`/admin/api/users/${userId}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Ошибка загрузки данных');
+                }
+                return response.json();
+            })
+            .then(user => {
+                // Заполняем модальное окно данными
+                document.getElementById('userId').textContent = user.id;
+                document.getElementById('userTelegramIdInfo').textContent = user.telegramId;
+                document.getElementById('userFirstName').textContent = user.firstName || 'Н/Д';
+                document.getElementById('userLastName').textContent = user.lastName || 'Н/Д';
+                document.getElementById('userLanguageCode').textContent = user.languageCode || 'Н/Д';
+
+                // Имя пользователя и аватар
+                document.getElementById('userName').textContent = (user.firstName || '') + ' ' + (user.lastName || '');
+                document.getElementById('userUsername').textContent = user.telegramUsername ? '@' + user.telegramUsername : 'Без имени пользователя';
+
+                const avatarEl = document.getElementById('userAvatar');
+                avatarEl.textContent = (user.firstName?.substring(0, 1)?.toUpperCase() ||
+                    (user.telegramUsername?.substring(0, 1)?.toUpperCase() || 'U'));
+
+                if (user.hasActiveSubscription) {
+                    avatarEl.className = 'avatar-circle premium me-3';
+                } else {
+                    avatarEl.className = 'avatar-circle me-3';
+                }
+
+                // Статус пользователя
+                const statusBadgeEl = document.getElementById('userStatusBadge');
+                if (user.blocked) {
+                    statusBadgeEl.className = 'badge text-bg-danger';
+                    statusBadgeEl.textContent = 'Заблокирован';
+                } else if (user.hasActiveSubscription) {
+                    statusBadgeEl.className = 'badge text-bg-success';
+                    statusBadgeEl.textContent = 'Активен';
+                } else {
+                    statusBadgeEl.className = 'badge text-bg-secondary';
+                    statusBadgeEl.textContent = 'Неактивен';
+                }
+
+                // Даты и статистика
+                document.getElementById('userCreatedAt').textContent = new Date(user.createdAt).toLocaleString();
+                document.getElementById('userLastActivity').textContent = user.lastActivity ? new Date(user.lastActivity).toLocaleString() : 'Н/Д';
+                document.getElementById('userTotalRequests').textContent = user.totalRequests || '0';
+
+                // Статус блокировки
+                if (user.blocked) {
+                    document.getElementById('userBlockedStatus').innerHTML = '<span class="badge text-bg-danger">Заблокирован</span>';
+                    document.getElementById('blockUserBtn').style.display = 'none';
+                    document.getElementById('unblockUserBtn').style.display = 'inline-block';
+                } else {
+                    document.getElementById('userBlockedStatus').innerHTML = '<span class="badge text-bg-success">Активен</span>';
+                    document.getElementById('blockUserBtn').style.display = 'inline-block';
+                    document.getElementById('unblockUserBtn').style.display = 'none';
+                }
+
+                // Информация о подписке
+                if (user.currentSubscription) {
+                    document.getElementById('noSubscription').style.display = 'none';
+                    document.getElementById('subscriptionInfo').style.display = 'block';
+                    document.getElementById('createSubscriptionBtn').style.display = 'none';
+
+                    const subscription = user.currentSubscription;
+                    document.getElementById('subscriptionId').textContent = subscription.id;
+                    document.getElementById('subscriptionTariffPlan').textContent = subscription.tariffPlan.displayName;
+                    document.getElementById('subscriptionStartDate').textContent = new Date(subscription.startDate).toLocaleDateString();
+                    document.getElementById('subscriptionEndDate').textContent = new Date(subscription.endDate).toLocaleDateString();
+
+                    // Оставшиеся запросы и прогресс-бар
+                    document.getElementById('subscriptionRemainingRequests').textContent =
+                        `${subscription.remainingRequests} из ${subscription.totalRequests}`;
+
+                    const usagePercent = Math.round((1 - subscription.remainingRequests / subscription.totalRequests) * 100);
+                    const progressBar = document.getElementById('requestsProgressBar');
+                    progressBar.style.width = usagePercent + '%';
+                    progressBar.setAttribute('aria-valuenow', usagePercent);
+
+                    // Вычисляем оставшиеся дни
+                    const today = new Date();
+                    const endDate = new Date(subscription.endDate);
+                    const diffTime = endDate - today;
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                    if (diffDays > 0 && subscription.active) {
+                        document.getElementById('subscriptionRemainingDays').textContent = diffDays + ' дн.';
+                    } else {
+                        document.getElementById('subscriptionRemainingDays').textContent = 'Истекла';
+                    }
+
+                    // Статус подписки
+                    const subStatusEl = document.getElementById('subscriptionStatus');
+                    if (subscription.active) {
+                        subStatusEl.innerHTML = '<span class="badge text-bg-success">Активна</span>';
+                    } else {
+                        subStatusEl.innerHTML = '<span class="badge text-bg-secondary">Неактивна</span>';
+                    }
+                } else {
+                    document.getElementById('noSubscription').style.display = 'block';
+                    document.getElementById('subscriptionInfo').style.display = 'none';
+                    document.getElementById('createSubscriptionBtn').style.display = 'inline-block';
+                }
+
+                // График активности
+                if (user.activityHistory && user.activityHistory.length > 0) {
+                    const activityCtx = document.getElementById('userActivityChart').getContext('2d');
+                    const activityChart = new Chart(activityCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: user.activityHistory.map(item => item.date),
+                            datasets: [{
+                                label: 'Запросы',
+                                data: user.activityHistory.map(item => item.count),
+                                backgroundColor: 'rgba(54, 162, 235, 0.7)',
+                                borderColor: 'rgba(54, 162, 235, 1)',
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: {
+                                legend: {
+                                    display: false
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        precision: 0
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+
+                // Настраиваем кнопки действий
+                setupUserActions(user);
+
+                // Скрываем индикатор загрузки и показываем контент
+                document.getElementById('userDetailLoader').style.display = 'none';
+                document.getElementById('userDetailContent').style.display = 'block';
+            })
+            .catch(error => {
+                console.error('Ошибка:', error);
+                document.getElementById('userDetailLoader').style.display = 'none';
+                document.getElementById('userDetailError').style.display = 'block';
+            });
+    }
+
+    // Настройка кнопок действий для пользователя
+    function setupUserActions(user) {
+        // Настраиваем кнопку отправки сообщения
+        const sendMsgBtn = document.getElementById('sendMessageBtn');
+        sendMsgBtn.onclick = function() {
+            sendMessage(user.id, user.telegramId);
+        };
+
+        // Настраиваем кнопку создания подписки
+        const createSubBtn = document.getElementById('createSubscriptionBtn');
+        createSubBtn.onclick = function() {
+            createSubscription(user.id);
+        };
+
+        // Настраиваем кнопку просмотра платежей
+        const viewPaymentsBtn = document.getElementById('viewPaymentsBtn');
+        viewPaymentsBtn.onclick = function() {
+            window.location.href = `/admin/payments?userId=${user.id}`;
+        };
+
+        // Настраиваем кнопки блокировки/разблокировки
+        const blockBtn = document.getElementById('blockUserBtn');
+        blockBtn.onclick = function() {
+            blockUser(user.id);
+        };
+
+        const unblockBtn = document.getElementById('unblockUserBtn');
+        unblockBtn.onclick = function() {
+            unblockUser(user.id);
+        };
+    }
+
+    // Функция для отправки сообщения пользователю
+    function sendMessage(userId, telegramId) {
+        // Закрываем предыдущее модальное окно, если оно открыто
+        if (document.getElementById('userDetailModal').classList.contains('show')) {
+            bootstrap.Modal.getInstance(document.getElementById('userDetailModal')).hide();
+        }
+
+        // Заполняем данные в форме
+        document.getElementById('messageUserId').value = userId;
+        document.getElementById('messageTelegramId').value = telegramId;
+        document.getElementById('messageText').value = '';
+        document.getElementById('parseMode').checked = true;
+
+        // Показываем модальное окно
+        const modal = new bootstrap.Modal(document.getElementById('sendMessageModal'));
+        modal.show();
+    }
+
+    // Функция для отправки сообщения на сервер
+    function sendMessageToUser(userId, telegramId, text, parseMode) {
+        if (!text.trim()) {
+            alert('Текст сообщения не может быть пустым');
+            return;
+        }
+
+        const messageData = {
+            userId: userId,
+            telegramId: telegramId,
+            text: text,
+            parseMode: parseMode
+        };
+
+        fetch('/admin/api/users/send-message', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="_csrf"]')?.getAttribute('content') || ''
+            },
+            body: JSON.stringify(messageData)
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Ошибка при отправке сообщения');
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Закрываем модальное окно
+                bootstrap.Modal.getInstance(document.getElementById('sendMessageModal')).hide();
+                alert('Сообщение успешно отправлено');
+            })
+            .catch(error => {
+                console.error('Ошибка:', error);
+                alert('Произошла ошибка при отправке сообщения. Пожалуйста, попробуйте позже.');
+            });
+    }
+
+    // Функция для создания подписки
+    function createSubscription(userId) {
+        // Закрываем предыдущее модальное окно, если оно открыто
+        if (document.getElementById('userDetailModal').classList.contains('show')) {
+            bootstrap.Modal.getInstance(document.getElementById('userDetailModal')).hide();
+        }
+
+        // Заполняем данные в форме
+        document.getElementById('subscriptionUserId').value = userId;
+        document.getElementById('createSubscriptionForm').reset();
+        document.getElementById('customDurationBlock').style.display = 'none';
+        document.getElementById('customRequestsBlock').style.display = 'none';
+
+        // Показываем модальное окно
+        const modal = new bootstrap.Modal(document.getElementById('createSubscriptionModal'));
+        modal.show();
+    }
+
+    // Функция для сохранения подписки
+    function saveSubscription() {
+        const formData = new FormData(document.getElementById('createSubscriptionForm'));
+        const userId = formData.get('userId');
+
+        // Преобразуем данные формы в объект
+        let duration = formData.get('duration');
+        if (duration === 'custom') {
+            duration = formData.get('customDuration');
+        }
+
+        let requests = null;
+        if (formData.get('requests') === 'custom') {
+            requests = formData.get('customRequests');
+        }
+
+        const subscriptionData = {
+            userId: userId,
+            tariffPlan: formData.get('tariffPlan'),
+            duration: parseInt(duration),
+            customRequests: requests ? parseInt(requests) : null,
+            notifyUser: formData.get('notifyUser') === 'on'
+        };
+
+        // Отправляем запрос на создание подписки
+        fetch('/admin/api/subscriptions/create', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="_csrf"]')?.getAttribute('content') || ''
+            },
+            body: JSON.stringify(subscriptionData)
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Ошибка при создании подписки');
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Закрываем модальное окно и перезагружаем страницу
+                bootstrap.Modal.getInstance(document.getElementById('createSubscriptionModal')).hide();
+                alert('Подписка успешно создана');
+                window.location.reload();
+            })
+            .catch(error => {
+                console.error('Ошибка:', error);
+                alert('Произошла ошибка при создании подписки. Пожалуйста, попробуйте позже.');
+            });
+    }
+
+    // Функция для блокировки пользователя
+    function blockUser(userId) {
+        if (!confirm('Вы действительно хотите заблокировать этого пользователя? Он потеряет доступ к боту.')) {
+            return;
+        }
+
+        fetch(`/admin/api/users/${userId}/block`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="_csrf"]')?.getAttribute('content') || ''
+            }
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Ошибка при блокировке пользователя');
+                }
+                return response.json();
+            })
+            .then(data => {
+                alert('Пользователь успешно заблокирован');
+                window.location.reload();
+            })
+            .catch(error => {
+                console.error('Ошибка:', error);
+                alert('Произошла ошибка при блокировке пользователя. Пожалуйста, попробуйте позже.');
+            });
+    }
+
+    // Функция для разблокировки пользователя
+    function unblockUser(userId) {
+        if (!confirm('Вы действительно хотите разблокировать этого пользователя?')) {
+            return;
+        }
+
+        fetch(`/admin/api/users/${userId}/unblock`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="_csrf"]')?.getAttribute('content') || ''
+            }
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Ошибка при разблокировке пользователя');
+                }
+                return response.json();
+            })
+            .then(data => {
+                alert('Пользователь успешно разблокирован');
+                window.location.reload();
+            })
+            .catch(error => {
+                console.error('Ошибка:', error);
+                alert('Произошла ошибка при разблокировке пользователя. Пожалуйста, попробуйте позже.');
+            });
+    }
+</script>
+</body>
+</html>
